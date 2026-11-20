@@ -33,7 +33,7 @@ Invariants support program understanding, testing, verification, and debugging~\
 A \emph{dynamic invariant detector} infers them: it runs a program's tests, proposes candidate invariants, and reports those that no execution falsifies.
 
 Daikon~\cite{ErnstCGN2001,ErnstPGMPTX2007} is the standard tool for this task, and much later work depends on it.
-The paper that introduced it received the 2013 ACM SIGSOFT Impact Paper Award~\cite{ImpactAward2013}, and more than 25 years later the field still builds on it: Google Scholar lists 147 papers published in 2026 alone that cite Daikon.
+The paper that introduced it received the 2013 ACM SIGSOFT Impact Paper Award~\cite{ImpactAward2013}.
 Daikon's output feeds program verifiers~\cite{NimmerE2002:ISSTA,NimmerE2002:FSE},
 test generators and test oracles~\cite{CsallnerS2006,AlonsoSR2023},
 commercial testing tools~\cite{BoshernitsanDS2006,XieN2003},
@@ -42,6 +42,7 @@ program and data-structure repair~\cite{PerkinsKLABCPSSSWZER2009,DemskyEGMPR2006
 hardware security~\cite{ZhangSGCS2017,DeutschbeinS2020,DeutschbeinMRKS2022},
 distributed systems~\cite{GrantCB2018,XiaSPDRR2025},
 and machine-learning models of invariants~\cite{PeiBSSY2023,HellendoornDPM2019,HellendoornDPM2020}; other tools use it as their baseline~\cite{CsallnerTS2008,MolinaPAF2021}.
+More than 25 years after its introduction, the field still builds on it: Google Scholar lists 147 papers published in 2026 alone that cite Daikon.
 A better invariant detector thus improves every tool that consumes its output.
 
 Daikon's design limits what it can find and how fast it runs.
