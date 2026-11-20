@@ -1,0 +1,201 @@
+\documentclass{article}
+\usepackage[letterpaper, margin=1in]{geometry} % 1-inch margins
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{enumitem} % For custom list formatting
+\usepackage{hyperref}
+\usepackage{booktabs} % For nice tables
+\pagestyle{fancy}
+\fancyhead{}
+\fancyhead[R]{HPC Research Allocation Renewal Proposal}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\setlist{itemsep=1pt, topsep=3pt}
+
+\title{\textbf{Renewal Proposal for High-Performance Computing Research Allocation:\\Template-Free Dynamic Invariant Detection}}
+\author{PI Name: Martin Kellogg \\ Department: Computer Science \\ Team: Erfan Arvan (PhD student, NJIT) \\ Michael D. Ernst (collaborator, University of Washington)}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{I. Technical Proposal}
+\setcounter{section}{1} % Start counting sections from 1
+
+\subsection*{1. Background and Context}
+An \emph{invariant} is a property that holds at a point in a program, such as a method's precondition or postcondition.
+Invariants support program understanding, testing, verification, and debugging~\cite{ErnstCGN2001,ErnstPGMPTX2007,HellendoornDPM2019}, but developers rarely write them down~\cite{ErnstCGN2001,HellendoornDPM2020}.
+A \emph{dynamic invariant detector} infers them: it runs a program's tests, proposes candidate invariants, and reports those that no execution falsifies.
+
+Daikon~\cite{ErnstCGN2001,ErnstPGMPTX2007} is the standard tool for this task, and much later work depends on it.
+The paper that introduced it received the 2013 ACM SIGSOFT Impact Paper Award~\cite{ImpactAward2013}, and more than 25 years later the field still builds on it: Google Scholar lists 147 papers published in 2026 alone that cite Daikon.
+Daikon's output feeds program verifiers~\cite{NimmerE2002:ISSTA,NimmerE2002:FSE},
+test generators and test oracles~\cite{CsallnerS2006,AlonsoSR2023},
+commercial testing tools~\cite{BoshernitsanDS2006,XieN2003},
+specification inference~\cite{MaLLXB2025,MolinaDPRAF2019},
+program and data-structure repair~\cite{PerkinsKLABCPSSSWZER2009,DemskyEGMPR2006,DingLTL2020,HuangMMO2024},
+hardware security~\cite{ZhangSGCS2017,DeutschbeinS2020,DeutschbeinMRKS2022},
+distributed systems~\cite{GrantCB2018,XiaSPDRR2025},
+and machine-learning models of invariants~\cite{PeiBSSY2023,HellendoornDPM2019,HellendoornDPM2020}; other tools use it as their baseline~\cite{CsallnerTS2008,MolinaPAF2021}.
+A better invariant detector thus improves every tool that consumes its output.
+
+Daikon's design limits what it can find and how fast it runs.
+It builds candidates from a fixed grammar of templates, such as \texttt{x != null} or \texttt{x < y}, so it can report only properties of those predefined forms.
+It cannot express a property that depends on the program's own logic or abstractions, such as an invariant that calls one of the program's methods, and it relates at most three variables at a time.
+These limits follow from deriving candidates from any fixed grammar, not from one implementation.
+Daikon is also slow on large programs.
+Its grammar instantiates many candidates over the variables at each program point, most of them uninformative.
+To check them, Daikon first records every execution of every instrumented program point to a trace file, then checks every candidate against that trace in a separate pass.
+So its run time and disk use grow with the size of the program and its test suite.
+Large language models (LLMs) offer a way past these limits: given a method's source code, an LLM can propose a small, targeted set of candidates that use the program's own abstractions.
+We have built \emph{Oca}~\cite{Oca}, a detector that asks an LLM for candidates at each method entry and exit, inserts them into the program as run-time checks, and runs the existing tests.
+Oca also handles candidates that cause side effects, trigger one another, or fail to terminate.
+
+We have run Oca on several open-source Java projects, and the results are promising.
+We request HPC resources to evaluate Oca: to find its best configuration through a systematic study of prompts, program context, and LLMs, and to compare it with Daikon on hundreds of real bugs and on large real-world projects (Section~2).
+
+\subsection*{2. Problem Statement and Research Objectives}
+Our early runs varied the prompt strategy and the context configuration one factor at a time, with one LLM, on a few projects.
+A proper evaluation needs a systematic study of Oca's configuration and a comparison with Daikon, the established baseline, on real-world programs and bugs at a scale large enough to support firm conclusions.
+The objectives are:
+\begin{enumerate}
+\item \textbf{Find Oca's best configuration.} Which prompt strategy, program context, LLM, and number of candidates per query yield the most invariants that hold. We will test all combinations of six prompt strategies and six context configurations rather than assume the two factors are independent.
+\item \textbf{Evaluate Oca against Daikon at full scale.} Expressiveness (do the invariants call program-specific methods or relate more than three variables?), validity (how many reported invariants are false?), usefulness (how many real bugs do the invariants expose?), and cost (time and disk), on Defects4J~\cite{JustJE2014}, a benchmark of 835 real bugs in 17 Java projects~\cite{Defects4J}, and on 16 large open-source Java projects from GitHub. Oca runs on all 835 bugs; Daikon, whose cost is far higher, runs on 245 of them (Section~3).
+\item \textbf{Release Oca} as an open-source tool for Java, with a replication package, so that others can use it and reproduce our results.
+\end{enumerate}
+\textbf{Why this needs HPC.}
+The study needs about 4,500 jobs, one per project version, each running the project's full test suite under instrumentation.
+Daikon's runs dominate: on a large project, tracing and inference for one version can take several days of computation and write terabytes, and the bug study needs both the buggy and the fixed version of every bug (Section~4).
+A fair comparison needs full traces, not sampled ones. In total the study needs about 620,000~SU, more than twice the 300,000~SU annual allocation, which the PI's group also needs for its other projects; Daikon's full traces on large projects alone account for about 276,000~SU.
+
+\subsection*{3. Methodology and Computational Approach}
+Each job runs one tool on one project version: it instruments the program, runs its tests, and records the invariants that hold.
+\textbf{Subjects:} all Defects4J projects, and 16 mature, active Java projects from GitHub found with SEART's repository search~\cite{DabicAB2021}: each has at least 1,000 commits, 1,000 pull requests, and 1,000 stars, and a commit in the three weeks before download. In Q1 we will confirm that each project builds and runs its tests under both tools.
+\begin{itemize}
+\item \textbf{E1, prompt and context:} 6 prompt strategies $\times$ 6 context configurations, 3 repetitions each (LLM output varies), on the 16 GitHub projects; then 3 values of the number of candidates per query on 21 projects (the 16 GitHub projects and 5 Defects4J projects).
+\item \textbf{E2, the LLM:} 2 cloud models and 3 open-weight models served on Wulver GPUs, 3 repetitions each, on the 21 projects.
+\item \textbf{E3, bugs exposed:} for each bug, infer invariants on the buggy version without the bug-revealing tests, run those tests, then confirm on the fixed version. Oca on all 835 bugs; Daikon on all 185 bugs of 5 smaller projects (Cli, Codec, Collections, Gson, Math), and on the 5 latest bugs of each larger project (up to 60).
+\item \textbf{E4, expressiveness and cost:} Daikon with full traces on the 16 GitHub projects; Oca on the 21 projects, 3 repetitions for timing.
+\end{itemize}
+\textbf{Applications/Codes:} Oca~\cite{Oca} (our Java tool), Daikon and its Java tracer Chicory, Maven/Gradle builds of the subject projects, and vLLM to serve open-weight LLMs.
+
+\textbf{Cluster Requirements:} standard CPU nodes (\texttt{general}) with 128~GB per job for Daikon's large Java heap; A100 GPUs (one 40~GB MIG slice, one full GPU, and two GPUs for the three open-weight models) for E2 only; scratch space for Daikon traces (up to about 2~TB per project version on large projects). The study needs no high-memory nodes or fast interconnect.
+
+\textbf{Parallelism:} the workload is high-throughput, not tightly coupled: about 4,500 independent single-node jobs (more with trace shards), submitted as Slurm job arrays, with no MPI. Throughput grows linearly with the number of concurrent jobs, since jobs share no state; the only limit on Daikon concurrency is scratch space. For large projects, we will split each test suite into shards traced in separate jobs, so that each job fits the cluster's job time limit, and run Daikon on the combined traces, one subset of program points per job (\texttt{--ppt-select-pattern}). The team built Oca and has long experience with Daikon, whose creator is a collaborator on this project.
+
+\subsection*{4. Software Characteristics and Benchmarking}
+\textbf{Startup Run Data:} Oca's run time grows with the number of method entries and exits it instruments, so we can estimate each job's cost before submitting it. On large projects, we expect a full Daikon trace to need several days of computation and reach terabytes.
+
+\textbf{Scaling Data:} each job runs on one node, so strong scaling across cores does not apply; efficiency comes from running many jobs at once. We estimate per-version costs of 2.9 job-hours for Daikon on the 5 smaller Defects4J projects and 72 job-hours (three days of computation, summed over shards) on larger projects, versus 0.6 and 1.1 job-hours for Oca. In Q1 we will confirm these estimates with small test runs before submitting the large job arrays.
+
+\textbf{Memory/IO Profile:} up to 128~GB per job. We expect Daikon's tracer to write tens of gigabytes per hour and up to about 2~TB per project version on large projects; Oca writes no trace, and we expect under 3~GB per run.
+
+\textbf{GPU Profile:} E2 serves three open-weight models: a small model on a 40~GB MIG slice, a medium model on one 80~GB A100, and a large model on two A100s (160~GB). One pass over the 21 projects sends roughly 200 million tokens; most are prompt tokens, which the GPU processes in batches. We assume a sustained 4,000, 1,500, and 800 tokens per second for the three models, or 13.9, 37.0, and 69.4 hours per pass. These are planning assumptions, not measurements; we will measure throughput in Q1 and adjust E2 to its budget.
+
+\subsection*{5. Research Schedule and Resource Plan}
+\textbf{Total SU Request:} 625,000~SU (621,415 rounded up).
+
+\textbf{Run Breakdown:} CPU jobs request 128~GB, so each costs MAX(CPUs, 128/4) = 32~SU per hour for up to 32 cores. Hours per run are the estimates in Section~4.
+\begin{center}
+\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{|l|l|r|r|r|r|}
+\toprule
+\textbf{Computational Task} & \textbf{Resources} & \textbf{Time/Run (hrs)} & \textbf{Runs} & \textbf{SU/hr} & \textbf{Total SU} \\
+\midrule
+E1: prompt $\times$ context & $\le$32 cores, 128 GB & 17.3 & 108 & 32 & 59,789 \\
+E1: candidates per query & $\le$32 cores, 128 GB & 20.2 & 9 & 32 & 5,818 \\
+E2: cloud LLMs & $\le$32 cores, 128 GB & 20.2 & 6 & 32 & 3,878 \\
+E2: Oca with open-weight LLMs & $\le$32 cores, 128 GB & 20.2 & 9 & 32 & 5,818 \\
+E2: small LLM & 4 cores, 64 GB, 40g MIG & 13.9 & 3 & 24 & 1,001 \\
+E2: medium LLM & 8 cores, 128 GB, 1 A100 & 37.0 & 3 & 48 & 5,328 \\
+E2: large LLM & 16 cores, 256 GB, 2 A100 & 69.4 & 3 & 96 & 19,987 \\
+E3: Daikon, 5 smaller projects & $\le$32 cores, 128 GB & 5.7 & 185 & 32 & 33,744 \\
+E3: Daikon, large projects & $\le$32 cores, 128 GB & 144 & 60 & 32 & 276,480 \\
+E3: Oca, 5 smaller projects & $\le$32 cores, 128 GB & 1.2 & 185 & 32 & 7,104 \\
+E3: Oca, large projects & $\le$32 cores, 128 GB & 2.2 & 650 & 32 & 45,760 \\
+E4: Daikon full traces & $\le$32 cores, 128 GB & 100 & 16 & 32 & 51,200 \\
+E4: Oca timing repetitions & $\le$32 cores, 128 GB & 20.2 & 3 & 32 & 1,939 \\
+Reruns after crashes and hangs (20\%) & & & & & 103,569 \\
+\midrule
+\textbf{Total} & & & & & \textbf{621,415} \\
+\bottomrule
+\end{tabular}
+\end{center}
+Each E1, E2, and E4 run covers all of its projects, as one job per project. Each E3 run is one bug and covers two versions (buggy and fixed). For Daikon on large projects, the 144 hours are job-hours summed over trace shards, 72 per version; shards run in parallel, so elapsed time is shorter.
+
+\textbf{Consumption Estimate:} use will not be uniform, because Daikon's runs on large projects fall in Q2 and Q3.
+\begin{center}
+\small
+\begin{tabular}{|l|p{11cm}|r|}
+\toprule
+\textbf{Quarter (2027)} & \textbf{Work and deliverable} & \textbf{Share} \\
+\midrule
+Q1 (Jan--Mar) & E1, E2, E3 on the 5 smaller projects; configuration selected & 23\% \\
+Q2 (Apr--Jun) & E3: Oca on all bugs, Daikon on 20 large-project bugs & 27\% \\
+Q3 (Jul--Sep) & E3: Daikon on the remaining 40 large-project bugs; full comparison & 38\% \\
+Q4 (Oct--Dec) & E4, reruns, replication package; paper submitted (FSE or ICSE), tool released & 12\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+\clearpage
+
+\section*{II. Supporting Information}
+
+\subsection*{6. Impacts and Outcomes of Previous Allocation}
+The PI's group holds the standard 300K SU annual allocation, which supports its research in software engineering and program analysis. This request is for a new, larger study that the annual allocation cannot accommodate alongside the group's other projects.
+
+\subsection*{7. List of Publications, Reports, and Presentations}
+\textbf{Research software:} Oca~\cite{Oca}, the open-source invariant detector this allocation will evaluate.
+
+\textbf{Planned outputs of this allocation:} a paper at FSE or ICSE, a public replication package, and a release of Oca (Section~5).
+
+\subsection*{8. External Funding}
+LLM API costs for the cloud models in E1 and E2 are paid outside this allocation and are not part of the SU request. The requested SUs cover all cluster computation for the study.
+
+\subsection*{9. Data Management Plan}
+Daikon traces are the only large data: up to about 2~TB per project version on large projects, written to scratch.
+We will run no more Daikon jobs at once than scratch can hold and delete each trace as soon as Daikon has processed it.
+We keep only invariant files, logs, and timing data (we expect under 50~GB) in the group's project storage.
+The data contain no personal or sensitive information: all subjects are public open-source projects.
+At the end of the project, we will archive the retained data with the replication package on Zenodo and remove all project data from scratch and project storage.
+
+\begin{thebibliography}{99}\small\sloppy
+\bibitem{ErnstCGN2001} M. D. Ernst, J. Cockrell, W. G. Griswold, D. Notkin. Dynamically discovering likely program invariants to support program evolution. \emph{IEEE TSE} 27(2), 2001. Earlier version in ICSE 1999.
+\bibitem{ErnstPGMPTX2007} M. D. Ernst, J. H. Perkins, P. J. Guo, S. McCamant, C. Pacheco, M. S. Tschantz, C. Xiao. The Daikon system for dynamic detection of likely invariants. \emph{Science of Computer Programming} 69(1--3), 2007.
+\bibitem{ImpactAward2013} UW CSE News. 2013 ACM SIGSOFT ``Impact Paper Award'' to Mike Ernst, Jake Cockrell, Bill Griswold, and David Notkin. \url{https://news.cs.washington.edu/2013/02/20/2013-acm-sigsoft-impact-paper-award-to-mike-ernst-jake-cockrell-bill-griswold-and-david-notkin/}
+\bibitem{NimmerE2002:ISSTA} J. W. Nimmer, M. D. Ernst. Automatic generation of program specifications. ISSTA 2002.
+\bibitem{NimmerE2002:FSE} J. W. Nimmer, M. D. Ernst. Invariant inference for static checking: An empirical evaluation. FSE 2002.
+\bibitem{CsallnerS2006} C. Csallner, Y. Smaragdakis. DSD-Crasher: A hybrid analysis tool for bug finding. ISSTA 2006.
+\bibitem{AlonsoSR2023} J. C. Alonso, S. Segura, A. Ruiz-Cort\'es. AGORA: Automated generation of test oracles for REST APIs. ISSTA 2023.
+\bibitem{BoshernitsanDS2006} M. Boshernitsan, R. Doong, A. Savoia. From Daikon to Agitator: Lessons and challenges in building a commercial tool for developer testing. ISSTA 2006.
+\bibitem{MaLLXB2025} L. Ma, S. Liu, Y. Li, X. Xie, L. Bu. SpecGen: Automated generation of formal program specifications via large language models. ICSE 2025.
+\bibitem{MolinaDPRAF2019} F. Molina, R. Degiovanni, P. Ponzio, G. Regis, N. Aguirre, M. Frias. Training binary classifiers as data structure invariants. ICSE 2019.
+\bibitem{PerkinsKLABCPSSSWZER2009} J. H. Perkins, S. Kim, S. Larsen, S. Amarasinghe, J. Bachrach, M. Carbin, C. Pacheco, F. Sherwood, S. Sidiroglou, G. Sullivan, W.-F. Wong, Y. Zibin, M. D. Ernst, M. Rinard. Automatically patching errors in deployed software. SOSP 2009.
+\bibitem{ZhangSGCS2017} R. Zhang, N. Stanley, C. Griggs, A. Chi, C. Sturton. Identifying security critical properties for the dynamic verification of a processor. ASPLOS 2017.
+\bibitem{GrantCB2018} S. Grant, H. Cech, I. Beschastnikh. Inferring and asserting distributed system invariants. ICSE 2018.
+\bibitem{XiaSPDRR2025} Y. Xia, D. Sur, A. S. Pingle, J. V. Deshmukh, M. Raghothaman, S. Ravi. Discovering likely invariants for distributed systems through runtime monitoring and learning. VMCAI 2025.
+\bibitem{PeiBSSY2023} K. Pei, D. Bieber, K. Shi, C. Sutton, P. Yin. Can large language models reason about program invariants? ICML 2023.
+\bibitem{Oca} E. Arvan, M. D. Ernst, M. Kellogg. Oca: Template-free dynamic invariant detection. \url{https://github.com/erfan-arvan/oca}
+\bibitem{XieN2003} T. Xie, D. Notkin. Tool-assisted unit test selection based on operational violations. ASE 2003.
+\bibitem{DemskyEGMPR2006} B. Demsky, M. D. Ernst, P. J. Guo, S. McCamant, J. H. Perkins, M. Rinard. Inference and enforcement of data structure consistency specifications. ISSTA 2006.
+\bibitem{DingLTL2020} Z. Y. Ding, Y. Lyu, C. Timperley, C. Le Goues. Patch quality and diversity of invariant-guided search-based program repair. arXiv:2003.11667, 2020.
+\bibitem{HuangMMO2024} L. Huang, B. Meyer, I. Mustafin, M. Oriol. Execution-free program repair. FSE Companion 2024.
+\bibitem{DeutschbeinS2020} C. Deutschbein, C. Sturton. Evaluating security specification mining for a CISC architecture. HOST 2020.
+\bibitem{DeutschbeinMRKS2022} C. Deutschbein, A. Meza, F. Restuccia, R. Kastner, C. Sturton. Isadora: Automated information-flow property generation for hardware security verification. \emph{Journal of Cryptographic Engineering}, 2022.
+\bibitem{HellendoornDPM2019} V. J. Hellendoorn, P. T. Devanbu, O. Polozov, M. Marron. Are my invariants valid? A learning approach. arXiv:1903.06089, 2019.
+\bibitem{HellendoornDPM2020} V. J. Hellendoorn, P. Devanbu, A. Polozov, M. Marron. Learning to infer run-time invariants from source code. NeurIPS 2020 Workshop on Computer-Assisted Programming.
+\bibitem{CsallnerTS2008} C. Csallner, N. Tillmann, Y. Smaragdakis. DySy: Dynamic symbolic execution for invariant inference. ICSE 2008.
+\bibitem{MolinaPAF2021} F. Molina, P. Ponzio, N. Aguirre, M. Frias. EvoSpex: An evolutionary algorithm for learning postconditions. ICSE 2021.
+\bibitem{JustJE2014} R. Just, D. Jalali, M. D. Ernst. Defects4J: A database of existing faults to enable controlled testing studies for Java programs. ISSTA 2014.
+\bibitem{Defects4J} Defects4J, version 2.0.0. \url{https://github.com/rjust/defects4j}
+\bibitem{DabicAB2021} O. Dabi\'c, E. Aghajani, G. Bavota. Sampling projects in GitHub for MSR studies. MSR 2021.
+\end{thebibliography}
+
+\end{document}
