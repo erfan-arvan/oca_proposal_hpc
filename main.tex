@@ -64,43 +64,60 @@ Our early runs varied the prompt strategy and the context configuration one fact
 A proper evaluation needs a systematic study of Oca's configuration and a comparison with Daikon, the established baseline, on real-world programs and bugs at a scale large enough to support firm conclusions.
 The objectives are:
 \begin{enumerate}
-\item \textbf{Find Oca's best configuration.} Which prompt strategy, program context, LLM, and number of candidates per query yield the most invariants that hold. We will test all combinations of six prompt strategies and six context configurations rather than assume the two factors are independent.
-\item \textbf{Evaluate Oca against Daikon at full scale.} Expressiveness (do the invariants call program-specific methods or relate more than three variables?), validity (how many reported invariants are false?), usefulness (how many real bugs do the invariants expose?), and cost (time and disk), on Defects4J~\cite{JustJE2014}, a benchmark of 835 real bugs in 17 Java projects~\cite{Defects4J}, and on 16 large open-source Java projects from GitHub. Oca runs on all 835 bugs; Daikon, whose cost is far higher, runs on 245 of them (Section~3).
+\item \textbf{Find Oca's best configuration.} Which prompt strategy, program context, LLM, and number of candidates per query yield the most invariants that hold.
+    We will test all combinations of six prompt strategies and six context configurations rather than assume the two factors are independent.
+\item \textbf{Evaluate Oca against Daikon at full scale.} Expressiveness (do the invariants call program-specific methods or relate more than three variables?), validity (how many reported invariants are false?), usefulness (how many real bugs do the invariants expose?), and cost (time and disk), on Defects4J~\cite{JustJE2014}, a benchmark of 835 real bugs in 17 Java projects~\cite{Defects4J}, and on 16 large open-source Java projects from GitHub.
+    Oca runs on all 835 bugs; Daikon, whose cost is far higher, runs on 245 of them (Section~3).
 \item \textbf{Release Oca} as an open-source tool for Java, with a replication package, so that others can use it and reproduce our results.
 \end{enumerate}
 \textbf{Why this needs HPC.}
 The study needs about 4,500 jobs, one per project version, each running the project's full test suite under instrumentation.
 Daikon's runs dominate: on a large project, tracing and inference for one version can take several days of computation and write terabytes, and the bug study needs both the buggy and the fixed version of every bug (Section~4).
-A fair comparison needs full traces, not sampled ones. In total the study needs about 620,000~SU, more than twice the 300,000~SU annual allocation, which the PI's group also needs for its other projects; Daikon's full traces on large projects alone account for about 276,000~SU.
+A fair comparison needs full traces, not sampled ones.
+In total the study needs about 620,000~SU, more than twice the 300,000~SU annual allocation, which the PI's group also needs for its other projects; Daikon's full traces on large projects alone account for about 276,000~SU.
 
 \subsection*{3. Methodology and Computational Approach}
 Each job runs one tool on one project version: it instruments the program, runs its tests, and records the invariants that hold.
-\textbf{Subjects:} all Defects4J projects, and 16 mature, active Java projects from GitHub found with SEART's repository search~\cite{DabicAB2021}: each has at least 1,000 commits, 1,000 pull requests, and 1,000 stars, and a commit in the three weeks before download. In Q1 we will confirm that each project builds and runs its tests under both tools.
+\textbf{Subjects:} all Defects4J projects, and 16 mature, active Java projects from GitHub found with SEART's repository search~\cite{DabicAB2021}: each has at least 1,000 commits, 1,000 pull requests, and 1,000 stars, and a commit in the three weeks before download.
+In Q1 we will confirm that each project builds and runs its tests under both tools.
 \begin{itemize}
 \item \textbf{E1, prompt and context:} 6 prompt strategies $\times$ 6 context configurations, 3 repetitions each (LLM output varies), on the 16 GitHub projects; then 3 values of the number of candidates per query on 21 projects (the 16 GitHub projects and 5 Defects4J projects).
 \item \textbf{E2, the LLM:} 2 cloud models and 3 open-weight models served on Wulver GPUs, 3 repetitions each, on the 21 projects.
-\item \textbf{E3, bugs exposed:} for each bug, infer invariants on the buggy version without the bug-revealing tests, run those tests, then confirm on the fixed version. Oca on all 835 bugs; Daikon on all 185 bugs of 5 smaller projects (Cli, Codec, Collections, Gson, Math), and on the 5 latest bugs of each larger project (up to 60).
+\item \textbf{E3, bugs exposed:} for each bug, infer invariants on the buggy version without the bug-revealing tests, run those tests, then confirm on the fixed version.
+    Oca on all 835 bugs; Daikon on all 185 bugs of 5 smaller projects (Cli, Codec, Collections, Gson, Math), and on the 5 latest bugs of each larger project (up to 60).
 \item \textbf{E4, expressiveness and cost:} Daikon with full traces on the 16 GitHub projects; Oca on the 21 projects, 3 repetitions for timing.
 \end{itemize}
 \textbf{Applications/Codes:} Oca~\cite{Oca} (our Java tool), Daikon and its Java tracer Chicory, Maven/Gradle builds of the subject projects, and vLLM to serve open-weight LLMs.
 
-\textbf{Cluster Requirements:} standard CPU nodes (\texttt{general}) with 128~GB per job for Daikon's large Java heap; A100 GPUs (one 40~GB MIG slice, one full GPU, and two GPUs for the three open-weight models) for E2 only; scratch space for Daikon traces (up to about 2~TB per project version on large projects). The study needs no high-memory nodes or fast interconnect.
+\textbf{Cluster Requirements:} standard CPU nodes (\texttt{general}) with 128~GB per job for Daikon's large Java heap; A100 GPUs (one 40~GB MIG slice, one full GPU, and two GPUs for the three open-weight models) for E2 only; scratch space for Daikon traces (up to about 2~TB per project version on large projects).
+The study needs no high-memory nodes or fast interconnect.
 
-\textbf{Parallelism:} the workload is high-throughput, not tightly coupled: about 4,500 independent single-node jobs (more with trace shards), submitted as Slurm job arrays, with no MPI. Throughput grows linearly with the number of concurrent jobs, since jobs share no state; the only limit on Daikon concurrency is scratch space. For large projects, we will split each test suite into shards traced in separate jobs, so that each job fits the cluster's job time limit, and run Daikon on the combined traces, one subset of program points per job (\texttt{--ppt-select-pattern}). The team built Oca and has long experience with Daikon, whose creator is a collaborator on this project.
+\textbf{Parallelism:} the workload is high-throughput, not tightly coupled: about 4,500 independent single-node jobs (more with trace shards), submitted as Slurm job arrays, with no MPI.
+Throughput grows linearly with the number of concurrent jobs, since jobs share no state; the only limit on Daikon concurrency is scratch space.
+For large projects, we will split each test suite into shards traced in separate jobs, so that each job fits the cluster's job time limit, and run Daikon on the combined traces, one subset of program points per job (\texttt{--ppt-select-pattern}).
+The team built Oca and has long experience with Daikon, whose creator is a collaborator on this project.
 
 \subsection*{4. Software Characteristics and Benchmarking}
-\textbf{Startup Run Data:} Oca's run time grows with the number of method entries and exits it instruments, so we can estimate each job's cost before submitting it. On large projects, we expect a full Daikon trace to need several days of computation and reach terabytes.
+\textbf{Startup Run Data:} Oca's run time grows with the number of method entries and exits it instruments, so we can estimate each job's cost before submitting it.
+On large projects, we expect a full Daikon trace to need several days of computation and reach terabytes.
 
-\textbf{Scaling Data:} each job runs on one node, so strong scaling across cores does not apply; efficiency comes from running many jobs at once. We estimate per-version costs of 2.9 job-hours for Daikon on the 5 smaller Defects4J projects and 72 job-hours (three days of computation, summed over shards) on larger projects, versus 0.6 and 1.1 job-hours for Oca. In Q1 we will confirm these estimates with small test runs before submitting the large job arrays.
+\textbf{Scaling Data:} each job runs on one node, so strong scaling across cores does not apply; efficiency comes from running many jobs at once.
+We estimate per-version costs of 2.9 job-hours for Daikon on the 5 smaller Defects4J projects and 72 job-hours (three days of computation, summed over shards) on larger projects, versus 0.6 and 1.1 job-hours for Oca.
+In Q1 we will confirm these estimates with small test runs before submitting the large job arrays.
 
-\textbf{Memory/IO Profile:} up to 128~GB per job. We expect Daikon's tracer to write tens of gigabytes per hour and up to about 2~TB per project version on large projects; Oca writes no trace, and we expect under 3~GB per run.
+\textbf{Memory/IO Profile:} up to 128~GB per job.
+We expect Daikon's tracer to write tens of gigabytes per hour and up to about 2~TB per project version on large projects; Oca writes no trace, and we expect under 3~GB per run.
 
-\textbf{GPU Profile:} E2 serves three open-weight models: a small model on a 40~GB MIG slice, a medium model on one 80~GB A100, and a large model on two A100s (160~GB). One pass over the 21 projects sends roughly 200 million tokens; most are prompt tokens, which the GPU processes in batches. We assume a sustained 4,000, 1,500, and 800 tokens per second for the three models, or 13.9, 37.0, and 69.4 hours per pass. These are planning assumptions, not measurements; we will measure throughput in Q1 and adjust E2 to its budget.
+\textbf{GPU Profile:} E2 serves three open-weight models: a small model on a 40~GB MIG slice, a medium model on one 80~GB A100, and a large model on two A100s (160~GB).
+One pass over the 21 projects sends roughly 200 million tokens; most are prompt tokens, which the GPU processes in batches.
+We assume a sustained 4,000, 1,500, and 800 tokens per second for the three models, or 13.9, 37.0, and 69.4 hours per pass.
+These are planning assumptions, not measurements; we will measure throughput in Q1 and adjust E2 to its budget.
 
 \subsection*{5. Research Schedule and Resource Plan}
 \textbf{Total SU Request:} 625,000~SU (621,415 rounded up).
 
-\textbf{Run Breakdown:} CPU jobs request 128~GB, so each costs MAX(CPUs, 128/4) = 32~SU per hour for up to 32 cores. Hours per run are the estimates in Section~4.
+\textbf{Run Breakdown:} CPU jobs request 128~GB, so each costs MAX(CPUs, 128/4) = 32~SU per hour for up to 32 cores.
+Hours per run are the estimates in Section~4.
 \begin{center}
 \footnotesize\setlength{\tabcolsep}{4pt}
 \begin{tabular}{|l|l|r|r|r|r|}
@@ -126,7 +143,9 @@ Reruns after crashes and hangs (20\%) & & & & & 103,569 \\
 \bottomrule
 \end{tabular}
 \end{center}
-Each E1, E2, and E4 run covers all of its projects, as one job per project. Each E3 run is one bug and covers two versions (buggy and fixed). For Daikon on large projects, the 144 hours are job-hours summed over trace shards, 72 per version; shards run in parallel, so elapsed time is shorter.
+Each E1, E2, and E4 run covers all of its projects, as one job per project.
+Each E3 run is one bug and covers two versions (buggy and fixed).
+For Daikon on large projects, the 144 hours are job-hours summed over trace shards, 72 per version; shards run in parallel, so elapsed time is shorter.
 
 \textbf{Consumption Estimate:} use will not be uniform, because Daikon's runs on large projects fall in Q2 and Q3.
 \begin{center}
@@ -149,7 +168,8 @@ Q4 (Oct--Dec) & E4, reruns, replication package; paper submitted (FSE or ICSE), 
 \section*{II. Supporting Information}
 
 \subsection*{6. Impacts and Outcomes of Previous Allocation}
-The PI's group holds the standard 300K SU annual allocation, which supports its research in software engineering and program analysis. This request is for a new, larger study that the annual allocation cannot accommodate alongside the group's other projects.
+The PI's group holds the standard 300K SU annual allocation, which supports its research in software engineering and program analysis.
+This request is for a new, larger study that the annual allocation cannot accommodate alongside the group's other projects.
 
 \subsection*{7. List of Publications, Reports, and Presentations}
 \textbf{Research software:} Oca~\cite{Oca}, the open-source invariant detector this allocation will evaluate.
@@ -157,7 +177,8 @@ The PI's group holds the standard 300K SU annual allocation, which supports its 
 \textbf{Planned outputs of this allocation:} a paper at FSE or ICSE, a public replication package, and a release of Oca (Section~5).
 
 \subsection*{8. External Funding}
-LLM API costs for the cloud models in E1 and E2 are paid outside this allocation and are not part of the SU request. The requested SUs cover all cluster computation for the study.
+LLM API costs for the cloud models in E1 and E2 are paid outside this allocation and are not part of the SU request.
+The requested SUs cover all cluster computation for the study.
 
 \subsection*{9. Data Management Plan}
 Daikon traces are the only large data: up to about 2~TB per project version on large projects, written to scratch.
