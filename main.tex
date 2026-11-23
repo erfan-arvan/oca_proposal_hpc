@@ -48,7 +48,7 @@ A better invariant detector thus improves every tool that consumes its output.
 Daikon's design limits what it can find and how fast it runs.
 It builds candidates from a fixed grammar of templates, such as \texttt{x != null} or \texttt{x < y}, so it can report only properties of those predefined forms.
 It cannot express a property that depends on the program's own logic or abstractions, such as an invariant that calls one of the program's methods, and it relates at most three variables at a time.
-These limits follow from deriving candidates from any fixed grammar, not from one implementation.
+These limits follow from deriving candidates from any fixed grammar, not from Daikon's implementation.
 Daikon is also slow on large programs.
 Its grammar instantiates many candidates over the variables at each program point, most of them uninformative.
 To check them, Daikon first records every execution of every instrumented program point to a trace file, then checks every candidate against that trace in a separate pass.
@@ -65,7 +65,7 @@ Our early runs varied the prompt strategy and the context configuration one fact
 A proper evaluation needs a systematic study of Oca's configuration and a comparison with Daikon, the established baseline, on real-world programs and bugs at a scale large enough to support firm conclusions.
 The objectives are:
 \begin{enumerate}
-\item \textbf{Find Oca's best configuration.} Which prompt strategy, program context, LLM, and number of candidates per query yield the most invariants that hold.
+\item \textbf{Find Oca's best configuration.} Which prompt strategy, program context, LLM, and number of candidates per query yield the most invariants that hold?
     We will test all combinations of six prompt strategies and six context configurations rather than assume the two factors are independent.
 \item \textbf{Evaluate Oca against Daikon at full scale.} Expressiveness (do the invariants call program-specific methods or relate more than three variables?), validity (how many reported invariants are false?), usefulness (how many real bugs do the invariants expose?), and cost (time and disk), on Defects4J~\cite{JustJE2014}, a benchmark of 835 real bugs in 17 Java projects~\cite{Defects4J}, and on 16 large open-source Java projects from GitHub.
     Oca runs on all 835 bugs; Daikon, whose cost is far higher, runs on 245 of them (Section~3).
